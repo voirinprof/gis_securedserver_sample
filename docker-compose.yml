@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  postgresql:
+    image: postgres:latest
+    container_name: postgresql
+    environment:
+      POSTGRES_PASSWORD: pswd
+    volumes:
+      - ./postgresql/logs:/var/log/postgresql
+      - ./postgresql/postgresql.conf:/etc/postgresql/postgresql.conf
+    ports:
+      - "5432:5432"
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    networks:
+      - webnet
+  mysql:
+    image: mysql:latest
+    container_name: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: pswd
+    volumes:
+      - ./mysql/logs:/var/log/mysql
+      - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+    ports:
+      - "3306:3306"
+    networks:
+      - webnet
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf:/etc/nginx/conf.d
+      - ./nginx/logs:/var/log/nginx
+    networks:
+      - webnet
+    depends_on:
+      - fail2ban
+
+  fail2ban:
+    image: crazymax/fail2ban:latest
+    container_name: fail2ban
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+    - ./fail2ban/jail.d:/etc/fail2ban/jail.d
+    - ./fail2ban/filter.d:/etc/fail2ban/filter.d
+    - ./nginx/logs:/var/log/nginx:ro
+    - ./mysql/logs:/var/log/mysql:ro
+    - ./postgresql/logs:/var/log/postgresql:ro
+    - ./fail2ban/fail2ban.local:/etc/fail2ban/fail2ban.local
+    environment:
+      - TZ=Europe/Paris
+    restart: always
+
+  portsentry:
+    image: portsentry/portsentry:latest
+    container_name: portsentry
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./portsentry/portsentry.conf:/etc/portsentry/portsentry.conf
+    environment:
+      - TZ=America/New_York
+    restart: always
+
+networks:
+  webnet:
+    driver: bridge
